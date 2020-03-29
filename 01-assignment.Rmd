@@ -1,0 +1,458 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.4.1
+  kernelspec:
+    display_name: Python 3
+    language: python
+    name: python3
+---
+
+```{python}
+# %autosave 0
+# %load_ext pycodestyle_magic
+# %pycodestyle_on
+```
+
+# Homework 1: Preprocessing and Text Classification
+
+
+Student Name: Xiande Wen
+
+Student ID: 905003
+
+
+# General Info
+
+<b>Due date</b>: Sunday, 5 Apr 2020 5pm
+
+<b>Submission method</b>: Canvas submission
+
+<b>Submission materials</b>: completed copy of this iPython notebook
+
+<b>Late submissions</b>: -20% per day (both week and weekend days counted)
+
+<b>Marks</b>: 10% of mark for class (with 9% on correctness + 1% on quality and efficiency of your code)
+
+<b>Materials</b>: See [Using Jupyter Notebook and Python page](https://canvas.lms.unimelb.edu.au/courses/17601/pages/using-jupyter-notebook-and-python?module_item_id=1678430) on Canvas (under Modules>Resources) for information on the basic setup required for this class, including an iPython notebook viewer and the python packages NLTK, Numpy, Scipy, Matplotlib, Scikit-Learn, and Gensim. In particular, if you are not using a lab computer which already has it installed, we recommend installing all the data for NLTK, since you will need various parts of it to complete this assignment. You can also use any Python built-in packages, but do not use any other 3rd party packages (the packages listed above are all fine to use); if your iPython notebook doesn't run on the marker's machine, you will lose marks. <b> You should use Python 3</b>.  
+
+To familiarize yourself with NLTK, here is a free online book:  Steven Bird, Ewan Klein, and Edward Loper (2009). <a href=http://nltk.org/book>Natural Language Processing with Python</a>. O'Reilly Media Inc. You may also consult the <a href=https://www.nltk.org/api/nltk.html>NLTK API</a>.
+
+<b>Evaluation</b>: Your iPython notebook should run end-to-end without any errors in a reasonable amount of time, and you must follow all instructions provided below, including specific implementation requirements and instructions for what needs to be printed (please avoid printing output we don't ask for). You should edit the sections below where requested, but leave the rest of the code as is. You should leave the output from running your code in the iPython notebook you submit, to assist with marking. The amount each section is worth is given in parenthesis after the instructions. 
+
+You will be marked not only on the correctness of your methods, but also the quality and efficency of your code: in particular, you should be careful to use Python built-in functions and operators when appropriate and pick descriptive variable names that adhere to <a href="https://www.python.org/dev/peps/pep-0008/">Python style requirements</a>. If you think it might be unclear what you are doing, you should comment your code to help the marker make sense of it.
+
+<b>Updates</b>: Any major changes to the assignment will be announced via Canvas. Minor changes and clarifications will be announced on the discussion board; we recommend you check it regularly.
+
+<b>Academic misconduct</b>: For most people, collaboration will form a natural part of the undertaking of this homework, and we encourge you to discuss it in general terms with other students. However, this ultimately is still an individual task, and so reuse of code or other instances of clear influence will be considered cheating. We will be checking submissions for originality and will invoke the University’s <a href="http://academichonesty.unimelb.edu.au/policy.html">Academic Misconduct policy</a> where inappropriate levels of collusion or plagiarism are deemed to have taken place.
+
+
+# Overview
+
+In this homework, you'll be working with a collection tweets. The task is to classify whether a tweet constitutes a rumour event. This homework involves writing code to preprocess data and perform text classification.
+
+
+# 1. Preprocessing (5 marks)
+
+
+**Instructions**: Run the code below to download the tweet corpus for the assignment. Note: the download may take some time. **No implementation is needed.**
+
+```{python}
+import requests
+import os
+from pathlib import Path
+
+fname = 'rumour-data.tgz'
+data_dir = os.path.splitext(fname)[0] #'rumour-data'
+
+my_file = Path(fname)
+if not my_file.is_file():
+    url = "https://github.com/jhlau/jhlau.github.io/blob/master/files/rumour-data.tgz?raw=true"
+    r = requests.get(url)
+
+    #Save to the current directory
+    with open(fname, 'wb') as f:
+        f.write(r.content)
+        
+print("Done. File downloaded:", my_file)
+
+```
+
+**Instructions**: Run the code to extract the zip file. Note: the extraction may take a minute or two. **No implementation is needed.**
+
+```{python}
+import tarfile
+
+#decompress rumour-data.tgz
+tar = tarfile.open(fname, "r:gz")
+tar.extractall()
+tar.close()
+
+#remove superfluous files (e.g. .DS_store)
+extra_files = []
+for r, d, f in os.walk(data_dir):
+    for file in f:
+        if (file.startswith(".")):
+            extra_files.append(os.path.join(r, file))
+for f in extra_files:
+    os.remove(f)
+
+print("Extraction done.")
+```
+
+### Question 1 (1.0 mark)
+
+**Instructions**: The corpus data is in the *rumour-data* folder. It contains 2 sub-folders: *non-rumours* and *rumours*. As the names suggest, *rumours* contains all rumour-propagating tweets, while *non-rumours* has normal tweets. Within  *rumours* and *non-rumours*, you'll find some sub-folders, each named with an ID. Each of these IDs constitutes an 'event', where an event is defined as consisting a **source tweet** and its **reactions**.
+
+An illustration of the folder structure is given below:
+
+    rumour-data
+        - rumours
+            - 498254340310966273
+                - reactions
+                    - 498254340310966273.json
+                    - 498260814487642112.json
+                - source-tweet
+                    - 498254340310966273.json
+        - non-rumours
+
+Now we need to gather the tweet messages for rumours and non-rumour events. As the individual tweets are stored in json format, we need to use a json parser to parse and collect the actual tweet message. The function `get_tweet_text_from_json(file_path)` is provided to do that.
+
+**Task**: Complete the `get_events(event_dir)` function. The function should return **a list of events** for a particular class of tweets (e.g. rumours), and each event should contain the source tweet message and all reaction tweet messages.
+
+**Check**: Use the assertion statements in *"For your testing"* below for the expected output.
+
+```{python}
+import json
+
+
+def get_tweet_text_from_json(file_path):
+    with open(file_path) as json_file:
+        data = json.load(json_file)
+        return data["text"]
+
+
+def get_events(event_dir):
+    event_list = []
+
+    for event in sorted(os.listdir(event_dir)):
+        ###
+        # Your answer BEGINS HERE
+        ###
+
+        source_tweet_file = \
+            "{event_dir}/{event}/{source_tweet_dir}/{event}.json".format(
+                event_dir=event_dir,
+                event=event,
+                source_tweet_dir="source-tweet"
+            )
+        reaction_tweet_dir = \
+            "{event_dir}/{event}/{reaction_tweet_dir}".format(
+                event_dir=event_dir,
+                event=event,
+                reaction_tweet_dir="reactions"
+            )
+        reaction_tweet_files = []
+        for reaction_file in sorted(os.listdir(reaction_tweet_dir)):
+            reaction_tweet_files.append(
+                "{reaction_tweet_dir}/{reaction_file}".format(
+                    reaction_tweet_dir=reaction_tweet_dir,
+                    reaction_file=reaction_file
+                )
+            )
+
+        event_list.append(
+            [get_tweet_text_from_json(tweet_file)
+             for tweet_file in [source_tweet_file] + reaction_tweet_files]
+        )
+
+        ###
+        # Your answer ENDS HERE
+        ###
+
+    return event_list
+
+
+# a list of events, and each event is a list of tweets
+# (source tweet + reactions)
+rumour_events = get_events(os.path.join(data_dir, "rumours"))
+nonrumour_events = get_events(os.path.join(data_dir, "non-rumours"))
+
+print("Number of rumour events =", len(rumour_events))
+print("Number of non-rumour events =", len(nonrumour_events))
+```
+
+**For your testing:**
+
+```{python}
+assert(len(rumour_events) == 500)
+assert(len(nonrumour_events) == 1000)
+```
+
+### Question 2 (1.0 mark)
+
+**Instructions**: Next we need to preprocess the collected tweets to create a bag-of-words representation. The preprocessing steps required here are: (1) tokenize each tweet into individual word tokens (using NLTK `TweetTokenizer`); and (2) remove stopwords (based on NLTK `stopwords`).
+
+**Task**: Complete the `preprocess_events(event)` function. The function takes **a list of events** as input, and returns **a list of preprocessed events**. Each preprocessed event should have a dictionary of words and frequencies.
+
+**Check**: Use the assertion statements in *"For your testing"* below for the expected output.
+
+```{python}
+import nltk
+from nltk.tokenize import TweetTokenizer
+from nltk.corpus import stopwords
+from collections import defaultdict
+
+tt = TweetTokenizer()
+stopwords = set(stopwords.words('english'))
+
+
+def preprocess_events(events):
+    ###
+    # Your answer BEGINS HERE
+    ###
+
+    preprocessed_events = []
+    tknzr = TweetTokenizer()
+    for event in events:
+        preprocessed_event = defaultdict(int)
+        for tweet_text in event:
+            tokens = tknzr.tokenize(tweet_text)
+            for token in tokens:
+                if token.lower() not in stopwords:
+                    preprocessed_event[token] += 1
+        preprocessed_events.append(preprocessed_event)
+    return preprocessed_events
+    ###
+    # Your answer ENDS HERE
+    ###
+
+
+preprocessed_rumour_events = preprocess_events(rumour_events)
+preprocessed_nonrumour_events = preprocess_events(nonrumour_events)
+
+print("Number of preprocessed rumour events =",
+      len(preprocessed_rumour_events))
+print("Number of preprocessed non-rumour events =",
+      len(preprocessed_nonrumour_events))
+```
+
+**For your testing**:
+
+```{python}
+assert(len(preprocessed_rumour_events) == 500)
+assert(len(preprocessed_nonrumour_events) == 1000)
+```
+
+**Instructions**: Hashtags (i.e. topic tags which start with #) pose an interesting tokenisation problem because they often include multiple words written without spaces or capitalization. Run the code below to collect all unique hashtags in the preprocessed data. **No implementation is needed.**
+
+
+
+```{python}
+def get_all_hashtags(events):
+    hashtags = set([])
+    for event in events:
+        for word, frequency in event.items():
+            if word.startswith("#"):
+                hashtags.add(word)
+    return hashtags
+
+
+hashtags = get_all_hashtags(preprocessed_rumour_events
+                            + preprocessed_nonrumour_events)
+print("Number of hashtags =", len(hashtags))
+```
+
+### Question 3 (2.0 mark)
+
+**Instructions**: Our task here to tokenize the hashtags, by implementing a reversed version of the MaxMatch algorithm discussed in class, where matching begins at the end of the hashtag and progresses backwards. NLTK has a list of words that you can use for matching, see starter code below. Be careful about efficiency with respect to doing word lookups. One extra challenge you have to deal with is that the provided list of words includes only lemmas: your MaxMatch algorithm should match inflected forms by converting them into lemmas using the NLTK lemmatizer before matching. When lemmatising a word, you also need to provide the part-of-speech tag of the word. You should use `nltk.tag.pos_tag` for doing part-of-speech tagging.
+
+Note that the list of words is incomplete, and, if you are unable to make any longer match, your code should default to matching a single letter. Create a new list of tokenized hashtags (this should be a list of lists of strings) and use slicing to print out the last 20 hashtags in the list.
+
+For example, given "#speakup", the algorithm should produce: \["#", "speak", "up"\]. And note that you do not need to delete the hashtag symbol ("#") from the tokenised outputs.
+
+**Task**: Complete the `tokenize_hashtags(hashtags)` function by implementing a reversed MaxMatch algorithm. The function takes as input **a set of hashtags**, and returns **a dictionary** where key="hashtag" and value="a list of word tokens".
+
+**Check**: Use the assertion statements in *"For your testing"* below for the expected output.
+
+```{python}
+from nltk.corpus import wordnet
+
+lemmatizer = nltk.stem.wordnet.WordNetLemmatizer()
+words = set(nltk.corpus.words.words())  # a list of words provided by NLTK
+
+
+def tokenize_hashtags(hashtags):
+    ###
+    # Your answer BEGINS HERE
+    ###
+
+    def get_wordnet_pos(treebank_tag):
+        wordnet_pos = None
+        if treebank_tag.startswith('J'):
+            wordnet_pos = wordnet.ADJ
+        elif treebank_tag.startswith('V'):
+            wordnet_pos = wordnet.VERB
+        elif treebank_tag.startswith('N'):
+            wordnet_pos = wordnet.NOUN
+        elif treebank_tag.startswith('R'):
+            wordnet_pos = wordnet.ADV
+        return wordnet_pos
+
+    def max_match(hashtag):
+        if not hashtag:
+            return []
+        if hashtag == "#":
+            return ["#"]
+
+        length = len(hashtag)
+        word_start_index = -1
+
+        for i in range(-1, -length-1, -1):
+            curr_word = hashtag[i:]
+            curr_word_lower = curr_word.lower()
+
+            curr_word_pos = \
+                get_wordnet_pos(nltk.tag.pos_tag([curr_word_lower])[0][1])
+            curr_lemma = ""
+            if curr_word_pos:
+                curr_lemma = \
+                    lemmatizer.lemmatize(curr_word_lower, curr_word_pos)
+
+            if (curr_lemma in words or
+                # Check if it's a NNP
+                curr_lemma.capitalize() in words or
+                curr_word in words or
+                    curr_word_lower in words) and i < word_start_index:
+                word_start_index = i
+
+        return (max_match(hashtag[:word_start_index])
+                + [hashtag[word_start_index:]])
+
+    tokenized_hashtags = {}
+    for hashtag in hashtags:
+        tokenized_hashtags[hashtag] = max_match(hashtag)
+
+    return tokenized_hashtags
+    ###
+    # Your answer ENDS HERE
+    ###
+
+
+tokenized_hashtags = tokenize_hashtags(hashtags)
+
+print(list(tokenized_hashtags.items())[:20])
+```
+
+**For your testing:**
+
+```{python}
+assert(len(tokenized_hashtags) == len(hashtags))
+```
+
+### Question 4 (1.0 mark)
+
+**Instructions**: Now that we have the tokenized hashtags, we need to go back and update the bag-of-words representation for each event.
+
+**Task**: Complete the ``update_event_bow(events)`` function. The function takes **a list of preprocessed events**, and for each event, it looks for every hashtag it has and updates the bag-of-words dictionary with the tokenized hashtag tokens. Note: you do not need to delete the counts of the original hashtags when updating the bag-of-words (e.g., if a document has "#speakup":2 in its bag-of-words representation, you do not need to delete this hashtag and its counts).
+
+```{python}
+def update_event_bow(events):
+    ###
+    # Your answer BEGINS HERE
+    ###
+
+    for event in events:
+        for word, frequency in list(event.items()):
+            if word.startswith("#"):
+                for hashtag_token in tokenized_hashtags[word]:
+                    event[hashtag_token] += 1
+
+    ###
+    # Your answer ENDS HERE
+    ###
+
+
+update_event_bow(preprocessed_rumour_events)
+update_event_bow(preprocessed_nonrumour_events)
+
+print("Number of preprocessed rumour events =",
+      len(preprocessed_rumour_events))
+print("Number of preprocessed non-rumour events =",
+      len(preprocessed_nonrumour_events))
+```
+
+# Text Classification (4 marks)
+
+
+### Question 5 (1.0 mark)
+
+**Instructions**: Here we are interested to do text classification, to predict, given a tweet and its reactions, whether it is a rumour or not. The task here is to create training, development and test partitions from the preprocessed events and convert the bag-of-words representation into feature vectors.
+
+**Task**: Using scikit-learn, create training, development and test partitions with a 60%/20%/20% ratio. Remember to preserve the ratio of rumour/non-rumour events for all your partitions. Next, turn the bag-of-words dictionary of each event into a feature vector, using scikit-learn `DictVectorizer`.
+
+```{python}
+from sklearn.feature_extraction import DictVectorizer
+
+vectorizer = DictVectorizer()
+
+###
+# Your answer BEGINS HERE
+###
+
+training_ratio = 0.6
+development_ratio = 0.2
+test_ratio = 0.2
+
+rumour_train, rou
+
+
+###
+# Your answer ENDS HERE
+###
+
+# print("Vocabulary size =", len(vectorizer.vocabulary_))
+```
+
+### Question 6 (2.0 mark)
+
+**Instructions**: Now, let's build some classifiers. Here, we'll be comparing Naive Bayes and Logistic Regression. For each, you need to first find a good value for their main regularisation (hyper)parameters, which you should identify using the scikit-learn docs or other resources. Use the development set you created for this tuning process; do **not** use cross-validation in the training set, or involve the test set in any way. You don't need to show all your work, but you do need to print out the accuracy with enough different settings to strongly suggest you have found an optimal or near-optimal choice. We should not need to look at your code to interpret the output.
+
+**Task**: Implement two text classifiers: Naive Bayes and Logistic Regression. Tune the hyper-parameters of these classifiers and print the task performance for different hyper-parameter settings.
+
+```{python}
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.linear_model import LogisticRegression
+
+###
+# Your answer BEGINS HERE
+###
+    
+###
+# Your answer ENDS HERE
+###
+```
+
+### Question 7 (1.0 mark)
+
+**Instructions**: Using the best settings you have found, compare the two classifiers based on performance in the test set. Print out both accuracy and macro-averaged F-score for each classifier. Be sure to label your output.
+
+**Task**: Compute test performance in terms of accuracy and macro-averaged F-score for both Naive Bayes and Logistic Regression, using optimal hyper-parameter settings.
+
+```{python}
+###
+# Your answer BEGINS HERE
+###
+    
+###
+# Your answer ENDS HERE
+###
+```
+
+```{python}
+
+```
