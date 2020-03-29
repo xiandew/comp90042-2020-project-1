@@ -408,9 +408,6 @@ training_ratio = 0.6
 development_ratio = 0.2
 test_ratio = 0.2
 
-rumour_train, rou
-
-
 ###
 # Your answer ENDS HERE
 ###
