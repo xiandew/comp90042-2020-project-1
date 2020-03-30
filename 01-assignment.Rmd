@@ -486,7 +486,7 @@ tuned_mnb_clf.fit(trn_data, trn_classes)
 lr_clf = LogisticRegression()
 lr_clf.fit(trn_data, trn_classes)
 
-tuned_lr_clf = LogisticRegression(C=1.0, tol=0.0001)
+tuned_lr_clf = LogisticRegression(C=0.5, tol=0.0001)
 tuned_lr_clf.fit(trn_data, trn_classes)
 
 
@@ -500,8 +500,7 @@ def do_multiple_10foldcrossvalidation(clfs, data, classifications):
 
 
 do_multiple_10foldcrossvalidation(
-    [mnb_clf, tuned_mnb_clf,
-     lr_clf, tuned_lr_clf],
+    [mnb_clf, tuned_mnb_clf, lr_clf, tuned_lr_clf],
     dev_data,
     dev_classes
 )
@@ -521,7 +520,13 @@ do_multiple_10foldcrossvalidation(
 ###
 # Your answer BEGINS HERE
 ###
-    
+
+do_multiple_10foldcrossvalidation(
+    [tuned_mnb_clf, tuned_lr_clf],
+    tst_data,
+    tst_classes
+)
+
 ###
 # Your answer ENDS HERE
 ###
