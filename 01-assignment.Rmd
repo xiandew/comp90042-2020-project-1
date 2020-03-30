@@ -483,10 +483,10 @@ tuned_mnb_clf = MultinomialNB(alpha=4.15)
 tuned_mnb_clf.fit(trn_data, trn_classes)
 
 
-lr_clf = LogisticRegression()
+lr_clf = LogisticRegression(max_iter=200)
 lr_clf.fit(trn_data, trn_classes)
 
-tuned_lr_clf = LogisticRegression(C=0.5, tol=0.0001)
+tuned_lr_clf = LogisticRegression(C=0.47535, tol=2.125, max_iter=200)
 tuned_lr_clf.fit(trn_data, trn_classes)
 
 
