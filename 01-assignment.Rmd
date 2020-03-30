@@ -306,36 +306,29 @@ def tokenize_hashtags(hashtags):
     def max_match(hashtag):
         if not hashtag:
             return []
-        if hashtag == "#":
-            return ["#"]
 
-        length = len(hashtag)
-        word_start_index = -1
-
-        for i in range(-1, -length-1, -1):
-            curr_word = hashtag[i:]
-            curr_word_lower = curr_word.lower()
+        word_start_index = -len(hashtag)
+        for word_start_index in range(-len(hashtag), 0):
+            curr_word = hashtag[word_start_index:].lower()
 
             curr_word_pos = \
-                get_wordnet_pos(nltk.tag.pos_tag([curr_word_lower])[0][1])
+                get_wordnet_pos(nltk.tag.pos_tag([curr_word])[0][1])
             curr_lemma = ""
             if curr_word_pos:
                 curr_lemma = \
-                    lemmatizer.lemmatize(curr_word_lower, curr_word_pos)
+                    lemmatizer.lemmatize(curr_word, curr_word_pos)
 
-            if (curr_lemma in words or
-                # Check if it's a NNP
-                curr_lemma.capitalize() in words or
-                curr_word in words or
-                    curr_word_lower in words) and i < word_start_index:
-                word_start_index = i
+            if curr_lemma in words_lower or curr_word in words_lower:
+                break
 
         return (max_match(hashtag[:word_start_index])
                 + [hashtag[word_start_index:]])
 
+    words_lower = set([word.lower() for word in words])
     tokenized_hashtags = {}
     for hashtag in hashtags:
-        tokenized_hashtags[hashtag] = max_match(hashtag)
+        tokenized_hashtags[hashtag] = \
+            ["#"] + max_match(hashtag[1:])
 
     return tokenized_hashtags
     ###
