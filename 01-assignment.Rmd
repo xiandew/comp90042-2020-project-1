@@ -390,7 +390,6 @@ print("Number of preprocessed non-rumour events =",
 
 ```{python}
 from sklearn.feature_extraction import DictVectorizer
-from sklearn.model_selection import StratifiedShuffleSplit
 
 vectorizer = DictVectorizer()
 
@@ -398,57 +397,33 @@ vectorizer = DictVectorizer()
 # Your answer BEGINS HERE
 ###
 
-trn_size = 0.6
-dev_size = 0.2
-tst_size = 0.2
+trn_ratio = 0.6
+dev_ratio = 0.2
+tst_ratio = 0.2
 
-data = preprocessed_rumour_events + preprocessed_nonrumour_events
-classes = ["Rumour"] * len(preprocessed_rumour_events) + ["Nonrumour"] * len(preprocessed_nonrumour_events)
+trn_rumour_end_index = int(len(preprocessed_rumour_events) * trn_ratio)
+dev_rumour_end_index = int(len(preprocessed_rumour_events) * (trn_ratio + dev_ratio))
 
-# First split out training data
-trn__dev_tst__sss = StratifiedShuffleSplit(n_splits=1, train_size=trn_size)
-trn_index, dev_tst_index = [
-    (trn_index, dev_tst_index)
-    for trn_index, dev_tst_index
-    in trn__dev_tst__sss.split(data, classes)
-][0]
+trn_nonrumour_end_index = int(len(preprocessed_nonrumour_events) * trn_ratio)
+dev_nonrumour_end_index = int(len(preprocessed_nonrumour_events) * (trn_ratio + dev_ratio))
 
-trn_data = []
-trn_classes = []
-for i in trn_index:
-    trn_data.append(data[i])
-    trn_classes.append(classes[i])
+trn_rumour_data = preprocessed_rumour_events[:trn_rumour_end_index]
+trn_nonrumour_data = preprocessed_nonrumour_events[:trn_nonrumour_end_index]
+trn_data = trn_rumour_data + trn_nonrumour_data
+trn_classes = ["Rumour"] * len(trn_rumour_data) + ["Nonrumour"] * len(trn_nonrumour_data)
 
-dev_tst_data = []
-dev_tst_classes = []
-for i in dev_tst_index:
-    dev_tst_data.append(data[i])
-    dev_tst_classes.append(classes[i])
+dev_rumour_data = preprocessed_rumour_events[trn_rumour_end_index:dev_rumour_end_index]
+dev_nonrumour_data = preprocessed_nonrumour_events[trn_nonrumour_end_index:dev_nonrumour_end_index]
+dev_data = dev_rumour_data + dev_nonrumour_data
+dev_classes = ["Rumour"] * len(dev_rumour_data) + ["Nonrumour"] * len(dev_nonrumour_data)
+
+tst_rumour_data = preprocessed_rumour_events[dev_rumour_end_index:]
+tst_nonrumour_data = preprocessed_nonrumour_events[dev_nonrumour_end_index:]
+tst_data = tst_rumour_data + tst_nonrumour_data
+tst_classes = ["Rumour"] * len(tst_rumour_data) + ["Nonrumour"] * len(tst_nonrumour_data)
 
 
-# Then split the rest into development and test data
-dev__tst__sss = StratifiedShuffleSplit(n_splits=1, train_size=tst_size / (dev_size + tst_size))
-dev_index, tst_index = [
-    (dev_index, tst_index)
-    for dev_index, tst_index
-    in dev__tst__sss.split(dev_tst_data, dev_tst_classes)
-][0]
-
-
-dev_data = []
-dev_classes = []
-for i in dev_index:
-    dev_data.append(dev_tst_data[i])
-    dev_classes.append(dev_tst_classes[i])
-
-tst_data = []
-tst_classes = []
-for i in tst_index:
-    tst_data.append(dev_tst_data[i])
-    tst_classes.append(dev_tst_classes[i])
-
-
-vectorizer = DictVectorizer(sparse=False)
+# vectorizer = DictVectorizer(sparse=False)
 trn_data = vectorizer.fit_transform(trn_data)
 dev_data = vectorizer.fit_transform(dev_data)
 tst_data = vectorizer.fit_transform(tst_data)
@@ -457,7 +432,7 @@ tst_data = vectorizer.fit_transform(tst_data)
 # Your answer ENDS HERE
 ###
 
-print("Vocabulary size =", len(vectorizer.vocabulary_))
+# print("Vocabulary size =", len(vectorizer.vocabulary_))
 ```
 
 ### Question 6 (2.0 mark)
