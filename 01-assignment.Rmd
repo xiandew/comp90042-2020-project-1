@@ -423,7 +423,6 @@ tst_data = tst_rumour_data + tst_nonrumour_data
 tst_classes = ["Rumour"] * len(tst_rumour_data) + ["Nonrumour"] * len(tst_nonrumour_data)
 
 
-# vectorizer = DictVectorizer(sparse=False)
 trn_data = vectorizer.fit_transform(trn_data)
 dev_data = vectorizer.fit_transform(dev_data)
 tst_data = vectorizer.fit_transform(tst_data)
@@ -432,7 +431,7 @@ tst_data = vectorizer.fit_transform(tst_data)
 # Your answer ENDS HERE
 ###
 
-# print("Vocabulary size =", len(vectorizer.vocabulary_))
+print("Vocabulary size =", len(vectorizer.vocabulary_))
 ```
 
 ### Question 6 (2.0 mark)
